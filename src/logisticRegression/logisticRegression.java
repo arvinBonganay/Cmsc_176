@@ -18,10 +18,10 @@ public class logisticRegression {
     public static void main(String[] args) {
         init("others/irisflowers.csv");
         scaleFeature();
-        engineeredX = engineerPolynomials(2);
-        System.out.println(cost(0));
-        System.out.println(cost(1));
-        System.out.println(cost(2));
+        engineeredX = engineerPolynomials(1);
+        System.out.println(cost(0, 1));
+        System.out.println(cost(1, 1));
+        System.out.println(cost(2, 1));
     }
 
     public static void init(String filename){
@@ -98,7 +98,7 @@ public class logisticRegression {
     
     public static Matrix engineerPolynomials(int degree){
         int colSize = (int)Math.pow(degree + 1, feature);
-        theta = new Matrix(y.getColumnDimension(), colSize, 0.1);
+        theta = new Matrix(y.getColumnDimension(), colSize, 1);
         double[][] d = new double[input.size()][colSize];
         for (int i = 0; i < colSize; i++){
             int x = Integer.valueOf(Integer.toString(i, degree + 1));
@@ -138,7 +138,7 @@ public class logisticRegression {
         return result;
     }
     
-    public static double cost(int index){
+    public static double cost(int index, double lambda){
         Matrix a = sigmoid(h()); // g(h(x))
         a = a.getMatrix(0, a.getRowDimension() - 1, index, index); // submatrix of g(h(x))
         Matrix a1 = a.copy();  // log( g() )
@@ -150,6 +150,10 @@ public class logisticRegression {
         Matrix b1 = y.getMatrix(0, y.getRowDimension() - 1, index, index).transpose();              // y
         Matrix b2 = (new Matrix(b1.getRowDimension(), b1.getColumnDimension(), 1)).minusEquals(b1); // 1 - y 
         double result = -1.0 / a.getRowDimension() * (b1.times(a1).get(0, 0) + b2.times(a2).get(0, 0));
+        
+        Matrix c = theta.getMatrix(index, index, 0, theta.getColumnDimension() - 1); // theta submatrix 
+        double thetaSum = c.times(c.transpose()).get(0, 0);                          // summation of theta ^ 2
+        result += lambda / (2 * a.getRowDimension()) * thetaSum;
         return result;
     }
 }
