@@ -1,5 +1,5 @@
 package logisticRegression;
-// what
+
 import Jama.Matrix;
 import java.io.BufferedReader;
 import java.io.FileInputStream;
