@@ -4,11 +4,12 @@ import Jama.Matrix;
 import java.io.BufferedReader;
 import java.io.FileInputStream;
 import java.io.InputStreamReader;
+import java.math.BigDecimal;
 import java.util.*;
 
 public class logisticRegression {
     static List<Matrix> input;
-    static List<String> output;
+    static List<String> classification;
     static Matrix theta;
     static Matrix engineeredX;
     static Matrix y;
@@ -16,33 +17,23 @@ public class logisticRegression {
     
     public static void main(String[] args) {
         init("others/irisflowers.csv");
-//        y.print(2, 2);
         scaleFeature();
-//        for (Matrix x: input){
-//            x.print(2,5);
-//        }
         engineeredX = engineerPolynomials(2);
-        sigmoid(h()).print(2, 2);
-//        theta.print(2, 2);
-//        engineeredX.print(2, 5);
-//        Matrix m = h();
-//        m.print(2, 2);
-//        Matrix s = sigmoid(m);
-//        s.print(2, 2);
+        System.out.println(cost(0));
+        System.out.println(cost(1));
+        System.out.println(cost(2));
     }
 
     public static void init(String filename){
         input = new ArrayList<>();
-        output = new ArrayList<>();
         load_data(filename);
         feature = input.get(0).getColumnDimension();
-        setOutput();
     }
 
     public static void load_data(String filename){
         try (FileInputStream in = new FileInputStream(filename);
             BufferedReader reader = new BufferedReader(new InputStreamReader(in));) {
-
+            List<String> output = new ArrayList<>();
             String line;
             line = reader.readLine();// for the column names
             while ((line = reader.readLine()) != null){
@@ -59,10 +50,22 @@ public class logisticRegression {
                 }
                 input.add(new Matrix(x));
             }
+            setOutput(output);
             in.close();
             reader.close();
         } catch (Exception e){
             System.out.print(e.getMessage());
+        }
+    }
+    
+    public static void setOutput(List<String> output){
+        Set<String> u = new HashSet<>(output);
+        List<String> unique = new ArrayList<>(u);
+        classification = new ArrayList<>(unique);
+        y = new Matrix(input.size(), unique.size(), 0);
+        int index = 0;
+        for (String o: output){
+            y.set(index++, unique.indexOf(o), 1);
         }
     }
     
@@ -76,6 +79,7 @@ public class logisticRegression {
             }
         }
     }
+
     public static double mean(int feature){
         double sum = 0.0;
         for (Matrix x: input){
@@ -103,10 +107,6 @@ public class logisticRegression {
                 exp[j] = (x % 10.0);
                 x /= 10;
             }
-//            for (int q = 0; q < feature; q++){
-//                System.out.print(exp[q] +" ");
-//            }
-//            System.out.println("");
             int index = 0;
             for (Matrix matrix:input){
                 double value = 1;
@@ -129,20 +129,27 @@ public class logisticRegression {
             for(int i = 0; i < h.getRowDimension(); i++){
                 double x = Math.pow(Math.E, -(h.get(i, j)));
                 double value = (1.0 / (1 + x));
+                if (value >= 1.0){
+                    value = Math.nextAfter(1.0, 0);
+                }
                 result.set(i, j, value);
             }
         }
         return result;
     }
     
-    public static void setOutput(){
-        Set<String> u = new HashSet<>(output);
-        List<String> unique = new ArrayList<>(u);
-        System.out.println(unique);
-        y = new Matrix(input.size(), unique.size(), 0);
-        int index = 0;
-        for (String o: output){
-            y.set(index++, unique.indexOf(o), 1);
+    public static double cost(int index){
+        Matrix a = sigmoid(h()); // g(h(x))
+        a = a.getMatrix(0, a.getRowDimension() - 1, index, index); // submatrix of g(h(x))
+        Matrix a1 = a.copy();  // log( g() )
+        Matrix a2 = a.copy();  // log( 1 - g() ) 
+        for (int i = 0; i < a.getRowDimension(); i++){
+            a1.set(i, 0, Math.log10(a.get(i, 0)));      
+            a2.set(i, 0, Math.log10(1 - a.get(i, 0)));  
         }
+        Matrix b1 = y.getMatrix(0, y.getRowDimension() - 1, index, index).transpose();              // y
+        Matrix b2 = (new Matrix(b1.getRowDimension(), b1.getColumnDimension(), 1)).minusEquals(b1); // 1 - y 
+        double result = -1.0 / a.getRowDimension() * (b1.times(a1).get(0, 0) + b2.times(a2).get(0, 0));
+        return result;
     }
 }
