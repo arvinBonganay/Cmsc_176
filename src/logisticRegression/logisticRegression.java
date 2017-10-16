@@ -4,7 +4,6 @@ import Jama.Matrix;
 import java.io.BufferedReader;
 import java.io.FileInputStream;
 import java.io.InputStreamReader;
-import java.math.BigDecimal;
 import java.util.*;
 
 public class logisticRegression {
