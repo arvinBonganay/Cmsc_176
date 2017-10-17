@@ -10,23 +10,29 @@ public class logisticRegression {
     static List<Matrix> input;
     static List<String> classification;
     static Matrix theta;
-    static Matrix engineeredX;
+    static Matrix polyX;
     static Matrix y;
+    static Matrix h; // h(x())
     static int feature;
+    static double lambda = 1;
+    static double alpha =  1;
+    static List<List<Double>> costHist = new ArrayList<>();
     
     public static void main(String[] args) {
         init("others/irisflowers.csv");
-        scaleFeature();
-        engineeredX = engineerPolynomials(1);
-        System.out.println(cost(0, 1));
-        System.out.println(cost(1, 1));
-        System.out.println(cost(2, 1));
+        gradientDescent(100);
+        for(List<Double> a: costHist){
+            System.out.println(a);
+        }
     }
 
     public static void init(String filename){
         input = new ArrayList<>();
         load_data(filename);
         feature = input.get(0).getColumnDimension();
+        scaleFeature();
+        polyX = engineerPolynomials(1);
+        sigmoid(hOfX());
     }
 
     public static void load_data(String filename){
@@ -118,28 +124,28 @@ public class logisticRegression {
         return new Matrix(d);
     }
     
-    public static Matrix h(){
-        return engineeredX.times(theta.transpose());
+    public static Matrix hOfX(){
+        return polyX.times(theta.transpose());
     }
     
-    public static Matrix sigmoid(Matrix h){
-        Matrix result = new Matrix(h.getRowDimension(), h.getColumnDimension());
-        for (int j = 0; j < h.getColumnDimension(); j++){
-            for(int i = 0; i < h.getRowDimension(); i++){
-                double x = Math.pow(Math.E, -(h.get(i, j)));
-                double value = (1.0 / (1 + x));
-                if (value >= 1.0){
-                    value = Math.nextAfter(1.0, 0);
-                }
+    public static void sigmoid(Matrix x){
+        Matrix result = new Matrix(x.getRowDimension(), x.getColumnDimension());
+        for (int j = 0; j < x.getColumnDimension(); j++){
+            for(int i = 0; i < x.getRowDimension(); i++){
+                double a = Math.pow(Math.E, -(x.get(i, j)));
+                double value = (1.0 / (1 + a));
+//                if (value >= 1.0){
+//                    value = Math.nextAfter(1.0, 0);   // so that there would be no log(0)
+//                }
                 result.set(i, j, value);
             }
         }
-        return result;
+        h = result;
     }
     
-    public static double cost(int index, double lambda){
-        Matrix a = sigmoid(h()); // g(h(x))
-        a = a.getMatrix(0, a.getRowDimension() - 1, index, index); // submatrix of g(h(x))
+    public static double cost(int index){
+      
+        Matrix a = h.getMatrix(0, h.getRowDimension() - 1, index, index); // submatrix of g(h(x))
         Matrix a1 = a.copy();  // log( g() )
         Matrix a2 = a.copy();  // log( 1 - g() ) 
         for (int i = 0; i < a.getRowDimension(); i++){
@@ -154,5 +160,30 @@ public class logisticRegression {
         double thetaSum = c.times(c.transpose()).get(0, 0);                          // summation of theta ^ 2
         result += lambda / (2 * a.getRowDimension()) * thetaSum;
         return result;
+    }
+    
+    public static void gradientDescent(int iter){
+        
+        while (iter >= 0){
+            for (int i = 0; i < theta.getRowDimension(); i++){
+                Matrix a = h.getMatrix(0, h.getRowDimension() - 1, i, i);
+                Matrix b = y.getMatrix(0, y.getRowDimension() - 1, i, i);
+                Matrix c = a.minus(b);
+                Matrix m = theta.getMatrix(i, i, 0, theta.getColumnDimension() - 1); 
+                double thetaSum = m.times(new Matrix(m.getRowDimension(), m.getColumnDimension(), 1).transpose()).get(0, 0); 
+                thetaSum  = lambda / a.getRowDimension() * thetaSum;
+                for (int j = 0; j < theta.getColumnDimension(); j++){
+                    double d = c.transpose().times(polyX.getMatrix(0, polyX.getRowDimension() - 1, j, j)).get(0, 0);
+                    double value = theta.get(i, j) - alpha * 1 / a.getRowDimension() * d + thetaSum;
+                    theta.set(i, j, value);
+                }
+            }
+            List<Double> cost = new ArrayList<>();
+            cost.add(cost(0));
+            cost.add(cost(1));
+            cost.add(cost(2));
+            costHist.add(cost);
+            iter--;
+        }
     }
 }
