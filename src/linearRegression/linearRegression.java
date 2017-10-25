@@ -139,11 +139,11 @@ public class linearRegression {
                                                   PlotOrientation.VERTICAL,
                                                   true, true, false);
 
-      ChartPanel chartPanel = new ChartPanel( chart );
-      chartPanel.setPreferredSize( new java.awt.Dimension( 600 , 367 ) );
-      app.setContentPane( chartPanel );
-      app.pack();
-      RefineryUtilities.centerFrameOnScreen(app);
-      app.setVisible(true);
+        ChartPanel chartPanel = new ChartPanel( chart );
+        chartPanel.setPreferredSize( new java.awt.Dimension( 600 , 367 ) );
+        app.setContentPane( chartPanel );
+        app.pack();
+        RefineryUtilities.centerFrameOnScreen(app);
+        app.setVisible(true);
     }
 }

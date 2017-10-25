@@ -5,6 +5,16 @@ import java.io.BufferedReader;
 import java.io.FileInputStream;
 import java.io.InputStreamReader;
 import java.util.*;
+import org.jfree.chart.ChartFactory;
+import org.jfree.chart.ChartPanel;
+import org.jfree.chart.JFreeChart;
+import org.jfree.chart.plot.PlotOrientation;
+import org.jfree.data.xy.XYSeries;
+import org.jfree.data.xy.XYSeriesCollection;
+import org.jfree.ui.ApplicationFrame;
+import org.jfree.ui.RefineryUtilities;
+import org.jfree.chart.plot.XYPlot;
+import org.jfree.chart.renderer.xy.XYLineAndShapeRenderer;
 
 public class logisticRegression {
     static List<Matrix> input;
@@ -12,27 +22,27 @@ public class logisticRegression {
     static Matrix theta;
     static Matrix polyX;
     static Matrix y;
-    static Matrix h; // h(x())
     static int feature;
-    static double lambda = 1;
-    static double alpha =  1;
+    static double lambda = 0.001;
+    static double alpha =  0.01;
     static List<List<Double>> costHist = new ArrayList<>();
     
     public static void main(String[] args) {
-        init("others/irisflowers.csv");
-        gradientDescent(100);
-        for(List<Double> a: costHist){
-            System.out.println(a);
-        }
-    }
-
-    public static void init(String filename){
+        int degree = 2;
+        int iterations = 200;
+        
         input = new ArrayList<>();
-        load_data(filename);
+        load_data("others/irisflowers.csv");
         feature = input.get(0).getColumnDimension();
         scaleFeature();
-        polyX = engineerPolynomials(1);
-        sigmoid(hOfX());
+        polyX = engineerPolynomials(degree);
+        gradientDescent(iterations);
+        graph();
+        Matrix h = sigmoid(hOfX());
+        System.out.println(classification.get(0) + " final cost: " + cost(0, h));
+        System.out.println(classification.get(1) + " final cost: " + cost(1, h));
+        System.out.println(classification.get(2) + " final cost: " + cost(2, h));
+
     }
 
     public static void load_data(String filename){
@@ -64,13 +74,16 @@ public class logisticRegression {
     }
     
     public static void setOutput(List<String> output){
-        Set<String> u = new HashSet<>(output);
-        List<String> unique = new ArrayList<>(u);
-        classification = new ArrayList<>(unique);
-        y = new Matrix(input.size(), unique.size(), 0);
+        classification = new ArrayList<>();
+        for (String s: output){
+            if (!classification.contains(s)){
+                classification.add(s);
+            }
+        }
+        y = new Matrix(input.size(), classification.size(), 0);
         int index = 0;
         for (String o: output){
-            y.set(index++, unique.indexOf(o), 1);
+            y.set(index++, classification.indexOf(o), 1);
         }
     }
     
@@ -128,23 +141,22 @@ public class logisticRegression {
         return polyX.times(theta.transpose());
     }
     
-    public static void sigmoid(Matrix x){
+    public static Matrix sigmoid(Matrix x){
         Matrix result = new Matrix(x.getRowDimension(), x.getColumnDimension());
         for (int j = 0; j < x.getColumnDimension(); j++){
             for(int i = 0; i < x.getRowDimension(); i++){
                 double a = Math.pow(Math.E, -(x.get(i, j)));
                 double value = (1.0 / (1 + a));
-//                if (value >= 1.0){
-//                    value = Math.nextAfter(1.0, 0);   // so that there would be no log(0)
-//                }
+                if (value >= 1.0){
+                    value = Math.nextAfter(1.0, 0);   // so that there would be no log(0)
+                }
                 result.set(i, j, value);
             }
         }
-        h = result;
+        return result;
     }
     
-    public static double cost(int index){
-      
+    public static double cost(int index, Matrix h){
         Matrix a = h.getMatrix(0, h.getRowDimension() - 1, index, index); // submatrix of g(h(x))
         Matrix a1 = a.copy();  // log( g() )
         Matrix a2 = a.copy();  // log( 1 - g() ) 
@@ -155,7 +167,7 @@ public class logisticRegression {
         Matrix b1 = y.getMatrix(0, y.getRowDimension() - 1, index, index).transpose();              // y
         Matrix b2 = (new Matrix(b1.getRowDimension(), b1.getColumnDimension(), 1)).minusEquals(b1); // 1 - y 
         double result = -1.0 / a.getRowDimension() * (b1.times(a1).get(0, 0) + b2.times(a2).get(0, 0));
-        
+
         Matrix c = theta.getMatrix(index, index, 0, theta.getColumnDimension() - 1); // theta submatrix 
         double thetaSum = c.times(c.transpose()).get(0, 0);                          // summation of theta ^ 2
         result += lambda / (2 * a.getRowDimension()) * thetaSum;
@@ -163,8 +175,14 @@ public class logisticRegression {
     }
     
     public static void gradientDescent(int iter){
-        
+        Matrix h = sigmoid(hOfX());
         while (iter >= 0){
+            List<Double> cost = new ArrayList<>();
+            Matrix newH = sigmoid(hOfX());
+            cost.add(cost(0, newH));
+            cost.add(cost(1, newH));
+            cost.add(cost(2, newH));
+            costHist.add(cost);
             for (int i = 0; i < theta.getRowDimension(); i++){
                 Matrix a = h.getMatrix(0, h.getRowDimension() - 1, i, i);
                 Matrix b = y.getMatrix(0, y.getRowDimension() - 1, i, i);
@@ -178,12 +196,34 @@ public class logisticRegression {
                     theta.set(i, j, value);
                 }
             }
-            List<Double> cost = new ArrayList<>();
-            cost.add(cost(0));
-            cost.add(cost(1));
-            cost.add(cost(2));
-            costHist.add(cost);
             iter--;
         }
+    }
+    
+    public static void graph(){
+        ApplicationFrame app = new ApplicationFrame("Cost vs Iteration");
+        XYSeriesCollection data = new XYSeriesCollection();
+        for (String s: classification){
+            XYSeries dataset = new XYSeries(s);
+            int index = classification.indexOf(s);
+            for (int i = 0; i < costHist.size(); i++){
+                dataset.add(i+1, costHist.get(i).get(index));
+            }
+            data.addSeries(dataset);
+        }
+        JFreeChart chart = ChartFactory.createXYLineChart("Cost vs iteration", "Iteration", "Cost", data,
+                                                  PlotOrientation.VERTICAL,
+                                                  true, true, false);
+
+        ChartPanel chartPanel = new ChartPanel( chart );
+        chartPanel.setPreferredSize( new java.awt.Dimension( 600 , 367 ) );
+        XYPlot plot = chart.getXYPlot( );
+      
+        XYLineAndShapeRenderer renderer = new XYLineAndShapeRenderer( );
+        plot.setRenderer( renderer ); 
+        app.setContentPane( chartPanel );
+        app.pack();
+        RefineryUtilities.centerFrameOnScreen(app);
+        app.setVisible(true);
     }
 }
